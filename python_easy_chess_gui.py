@@ -53,6 +53,8 @@ import chess.engine
 import chess.polyglot
 import logging
 import platform as sys_plat
+import serial
+import time
 
 
 log_format = (
@@ -63,8 +65,8 @@ logging.basicConfig(
 )
 
 
-APP_NAME = "Python Easy Chess GUI"
-APP_VERSION = "v1.14"
+APP_NAME = "Maya"
+APP_VERSION = ""
 BOX_TITLE = "{} {}".format(APP_NAME, APP_VERSION)
 
 
@@ -427,19 +429,41 @@ class GuiBook:
 
 		return moves, is_found
 
-prev_move = "h1"
+def sendToArduino(user_move, is_kill, piece_type):
+	prev_move = "h1h1"
 
-def sendToArduino(user_move):
-	global prev_move
-
-	print(user_move.uci())
-	toPiece = [ord(user_move.uci()[0]) - ord(prev_move[0]), int(user_move.uci()[1]) - int(prev_move[1])]
-	print(toPiece)
-	fromPiece = [ord(user_move.uci()[2]) - ord(user_move.uci()[0]), int(user_move.uci()[3]) - int(user_move.uci()[1])]
-	print(fromPiece)
-
-	prev_move = user_move
+	piece_name = chess.piece_name(piece_type)
+	if (is_kill):
+		piece_name = "kill"
 	
+	toPiece = [ord(user_move.uci()[0]) - ord(prev_move[2]), int(user_move.uci()[1]) - int(prev_move[3])]
+	fromPiece = [ord(user_move.uci()[2]) - ord(user_move.uci()[0]), int(user_move.uci()[3]) - int(user_move.uci()[1])]
+	send_string = piece_name + ";" + str(toPiece[0]) + ";" + str(toPiece[1]) + ";" + str(fromPiece[0]) + ";" + str(fromPiece[1])
+	print(send_string)
+
+	ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+	ser.reset_input_buffer()
+	time.sleep(15)
+	ser.write((send_string + "\n").encode('UTF-8'))
+	return None
+
+def aIsendToArduino(ai_move, is_kill, piece_type):
+	prev_move = "h1h1"
+
+	piece_name = chess.piece_name(piece_type)
+	if (is_kill):
+		piece_name = "kill"
+	
+	toPiece = [ord(ai_move.uci()[0]) - ord(prev_move[2]), int(ai_move.uci()[1]) - int(prev_move[3])]
+	fromPiece = [ord(ai_move.uci()[2]) - ord(ai_move.uci()[0]), int(ai_move.uci()[3]) - int(ai_move.uci()[1])]
+	send_string = piece_name + ";" + str(toPiece[0]) + ";" + str(toPiece[1]) + ";" + str(fromPiece[0]) + ";" + str(fromPiece[1])
+	print(send_string)
+
+	time.sleep(15)
+	ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+	ser.reset_input_buffer()
+	time.sleep(15)
+	ser.write((send_string + "\n").encode('UTF-8'))
 	return None
 
 
@@ -829,8 +853,8 @@ class EasyChessGui:
 		self.engine_tc_type = "fischer"
 
 		# Default board color is brown
-		self.sq_light_color = "#F0D9B5"
-		self.sq_dark_color = "#B58863"
+		self.sq_light_color = "#D4D4D4"
+		self.sq_dark_color = "#762A4D"
 
 		# Move highlight, for brown board
 		self.move_sq_light_color = "#E8E18E"
@@ -2312,6 +2336,8 @@ class EasyChessGui:
 
 							# Check if user move is legal
 							if user_move in board.legal_moves:
+								is_kill = board.piece_at(to_sq)
+
 								# Update rook location if this is a castle move
 								if board.is_castling(user_move):
 									self.update_rook(window, str(user_move))
@@ -2379,6 +2405,8 @@ class EasyChessGui:
 
 								window.Element("advise_info_k").Update("")
 
+								sendToArduino(user_move, is_kill, board.piece_type_at(to_sq))
+
 							# Else if move is illegal
 							else:
 								move_state = 0
@@ -2391,8 +2419,6 @@ class EasyChessGui:
 								# Restore the color of the fr square
 								button_square.Update(button_color=("white", color))
 								continue
-
-							sendToArduino(user_move)
 
 				if (
 					is_new_game
@@ -2417,7 +2443,8 @@ class EasyChessGui:
 						gui_book = GuiBook(
 							self.gui_book_file, board, self.is_random_book
 						)
-						best_move = chess.Move.from_uci(input("Enter your move: "))
+						best_move = gui_book.get_book_move()
+						# best_move = chess.Move.from_uci(input("Enter your move: "))
 						logging.info("Book move is {}.".format(best_move))
 					else:
 						logging.warning("GUI book is missing.")
@@ -2560,6 +2587,11 @@ class EasyChessGui:
 				to_col = ord(move_str[2]) - ord("a")
 				to_row = 8 - int(move_str[3])
 
+				fr_sq = chess.square(fr_col, 7 - fr_row)
+				to_sq = chess.square(to_col, 7 - to_row)
+
+				is_kill = board.piece_at(to_sq)
+
 				piece = self.psg_board[fr_row][fr_col]
 				self.psg_board[fr_row][fr_col] = BLANK
 
@@ -2628,6 +2660,7 @@ class EasyChessGui:
 				window.Element(k2).Update(elapse_str)
 
 				window.find_element("_gamestatus_").Update("Mode     Play")
+				aIsendToArduino(best_move, is_kill, board.piece_type_at(to_sq))
 
 		# Auto-save game
 		logging.info("Saving game automatically")
