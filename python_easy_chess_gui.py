@@ -56,6 +56,7 @@ import platform as sys_plat
 import serial
 import time
 
+ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
 
 log_format = (
 	"%(asctime)s :: %(funcName)s :: line: %(lineno)d :: %(" "levelname)s :: %(message)s"
@@ -431,15 +432,16 @@ class GuiBook:
 
 def sendToArduino(user_move, is_kill, piece_type):
 	prev_move = "h1h1"
+	global ser
 
-	piece_name = chess.piece_name(piece_type)
+	#piece_name = chess.piece_name(piece_type)
 	if (is_kill):
 		piece_name = "kill"
 		toPiece = [ord(user_move.uci()[2]) - ord(prev_move[2]), int(user_move.uci()[3]) - int(prev_move[3])]
 		send_string = piece_name + ";" + str(toPiece[0]) + ";" + str(toPiece[1]) + ";" + 'h1' + ";" + 'h1'
 		print(send_string)
 
-		ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+		#ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
 		ser.reset_input_buffer()
 		time.sleep(1)
 		ser.write((send_string + "\n").encode('UTF-8'))
@@ -450,13 +452,14 @@ def sendToArduino(user_move, is_kill, piece_type):
 		while(arduinoInput != 'done'):
 			arduinoInput = str(ser.readline().decode('UTF-8')).strip()
 	
+	piece_name = chess.piece_name(piece_type)
 	toPiece = [ord(user_move.uci()[0]) - ord(prev_move[2]), int(user_move.uci()[1]) - int(prev_move[3])]
 	fromPiece = [ord(user_move.uci()[2]) - ord(user_move.uci()[0]), int(user_move.uci()[3]) - int(user_move.uci()[1])]
 	send_string = piece_name + ";" + str(toPiece[0]) + ";" + str(toPiece[1]) + ";" + str(fromPiece[0]) + ";" + str(fromPiece[1])
 	print(send_string)
 
-	ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
-	# ser.reset_input_buffer()
+	
+	ser.reset_input_buffer()
 	time.sleep(1)
 	ser.write((send_string + "\n").encode('UTF-8'))
 	
@@ -468,7 +471,7 @@ def sendToArduino(user_move, is_kill, piece_type):
 
 	return None
 
-def aIsendToArduino(ai_move, is_kill, piece_type):
+# def aIsendToArduino(ai_move, is_kill, piece_type):
 	prev_move = "h1h1"
 
 	piece_name = chess.piece_name(piece_type)
@@ -478,7 +481,7 @@ def aIsendToArduino(ai_move, is_kill, piece_type):
 		send_string = piece_name + ";" + str(toPiece[0]) + ";" + str(toPiece[1]) + ";" + 'h1' + ";" + 'h1'
 		print(send_string)
 
-		ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+		ser = serial.Serial('/dev/ttyACM1', 9600, timeout=1)
 		ser.reset_input_buffer()
 		time.sleep(1)
 		ser.write((send_string + "\n").encode('UTF-8'))
@@ -495,7 +498,7 @@ def aIsendToArduino(ai_move, is_kill, piece_type):
 	print(send_string)
 
 	# time.sleep(15)
-	ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+	ser = serial.Serial('/dev/ttyACM1', 9600, timeout=1)
 	ser.reset_input_buffer()
 	time.sleep(1)
 	ser.write((send_string + "\n").encode('UTF-8'))
@@ -2484,8 +2487,8 @@ class EasyChessGui:
 						gui_book = GuiBook(
 							self.gui_book_file, board, self.is_random_book
 						)
-						# best_move = gui_book.get_book_move()
-						best_move = chess.Move.from_uci(input("Enter your move: "))
+						best_move = gui_book.get_book_move()
+						# best_move = chess.Move.from_uci(input("Enter your move: "))
 						logging.info("Book move is {}.".format(best_move))
 					else:
 						logging.warning("GUI book is missing.")
